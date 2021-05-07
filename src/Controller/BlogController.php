@@ -9,6 +9,10 @@ use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\Extension\Core\Type\SubmitType;
 use App\Entity\Article;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\HttpFoundation\Request;
+use App\Form\ArticleType;
+
 
 class BlogController extends AbstractController
 {
@@ -41,30 +45,40 @@ class BlogController extends AbstractController
 
     /**
      * @Route("/blog/new", name="blog_create")
+     * @Route("/blog/{id}/edit", name="blog_edit")
      */
-    public function create()
+    public function form(Article $article = null, Request $request,EntityManagerInterface $entityManager)
     {
-        $article = new Article();
-        $form  = $this->createFormBuilder($article)
-                      ->add('title', TextType::class, [
-                          'attr' => [
-                              'placeholder' => "Titre de l'article",
-                          ]
-                      ])
-                      ->add('content', TextareaType::class, [
-                        'attr' => [
-                            'placeholder' => "Contenu de l'article",
-                        ]
-                    ])
-                      ->add('image', TextType::class, [
-                        'attr' => [
-                            'placeholder' => "Image de l'article",
-                        ]
-                    ])
-                      ->getForm();
+        if(!$article){
+            $article = new Article();
+        }
+
+        $entityManager = $this->getDoctrine()->getManager();
+
+        // $form  = $this->createFormBuilder($article)
+        //               ->add('title')
+        //               ->add('content')
+        //               ->add('image')
+        //               ->getForm();
+
+        $form = $this->createForm(ArticleType::class, $article);
+
+        $form->handleRequest($request);
+
+        if($form->isSubmitted() && $form->isValid()) {
+            if(!$article->getId()){
+                $article->setCreatedAt(new \DateTime);
+            }
+            
+            $entityManager->persist($article);
+            $entityManager->flush();
+
+            return $this->redirectToRoute('blog_show', ['id' => $article->getId()]);
+        }
 
         return $this->render('blog/create.html.twig', [
-            'formArticle' => $form->createView()
+            'formArticle' => $form->createView(),
+            'editMode' => $article->getId() !== null
         ]);
     }
 
